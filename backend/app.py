@@ -28,7 +28,7 @@ def home():
     return {"message": "this is home"}
 
 class EspData(BaseModel):
-    mac_id: str  # Included MAC ID/Device ID for distributed setup
+    mac_id: str  # Included MAC ID/Device ID for distribu
     mean: float
     var: float
     temp: float
