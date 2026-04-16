@@ -4,7 +4,6 @@ import time
 import requests
 import pandas as pd
 
-# --- Page Configuration ---
 st.set_page_config(
     page_title="Anomaly Detection System",
     page_icon="⚙️",
@@ -12,11 +11,9 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# --- Session State Initialization ---
 if 'theme' not in st.session_state:
     st.session_state.theme = 'Dark'
 
-# State to hold multiple machines in our distributed system
 if 'machines' not in st.session_state:
     st.session_state.machines = {
         "Default-MAC-1111": {"name": "Test Machine Alpha"}
@@ -25,7 +22,7 @@ if 'machines' not in st.session_state:
 if 'selected_machine' not in st.session_state:
     st.session_state.selected_machine = None
 
-# Custom CSS for Theme switching & Premium UI
+# Custom CSS 
 def apply_theme():
     if st.session_state.theme == 'Dark':
         css = """
@@ -124,7 +121,6 @@ def apply_theme():
 
 apply_theme()
 
-# --- Sidebar Navigation ---
 st.sidebar.title("Distributed System")
 
 # If we are viewing a specific machine, give an option to go back
@@ -133,11 +129,6 @@ if st.session_state.selected_machine:
         st.session_state.selected_machine = None
         st.rerun()
 
-# -------------------------------------------------------------
-# API REQUIREMENT: Prediction Data
-# Endpoint: GET /predict_latest/{device_id}
-# Returns the latest anomaly prediction from the trained model.
-# -------------------------------------------------------------
 def fetch_machine_data(device_id):
     try:
         # Assuming the backend is running locally for demonstration
@@ -157,9 +148,7 @@ if st.session_state.selected_machine:
     st.sidebar.info(f"Currently viewing: {st.session_state.machines[st.session_state.selected_machine]['name']}")
 
 
-# -------------------------------------------------------------------------
 # View 0: Specific Machine Details
-# -------------------------------------------------------------------------
 if st.session_state.selected_machine:
     mac_id = st.session_state.selected_machine
     machine_info = st.session_state.machines[mac_id]
@@ -202,11 +191,7 @@ if st.session_state.selected_machine:
         st.button("⚙️ Device Settings", use_container_width=True)
         
         if st.button("🧠 Retrain Model", use_container_width=True, type="primary"):
-            # -------------------------------------------------------------
-            # API REQUIREMENT: Model Training
-            # Endpoint: GET /train/{device_id}
-            # Tells backend to train IsolationForest on {device_id}_training_data.csv
-            # -------------------------------------------------------------
+
             with st.spinner("Training model using device data..."):
                 try:
                     res = requests.get(f"http://127.0.0.1:8000/train/{mac_id}", timeout=5)
@@ -344,9 +329,6 @@ elif choice == "Home":
                         st.session_state.selected_machine = mac_id
                         st.rerun()
 
-# -------------------------------------------------------------------------
-# View 2: Add New Machine Configuration
-# -------------------------------------------------------------------------
 elif choice == "Add New Machine":
     st.title("⚙️ Add New Distributed Device")
 
@@ -368,17 +350,9 @@ elif choice == "Add New Machine":
                 st.session_state.machines[mac_id_input] = {
                     "name": custom_name_input
                 }
-                # -------------------------------------------------------------
-                # API REQUIREMENT: Device Registry
-                # You might need a `POST /register_device` endpoint to save this permanently 
-                # on a backend database, otherwise it disappears on app restart.
-                # -------------------------------------------------------------
                 st.success(f"Device '{custom_name_input}' ({mac_id_input}) added successfully!")
                 st.balloons()
 
-# -------------------------------------------------------------------------
-# View 3: Settings
-# -------------------------------------------------------------------------
 elif choice == "Settings":
     st.title("🎛️ Settings")
 
