@@ -60,7 +60,7 @@ async def train_model(device_id: str):
 
     df = pd.read_csv(csv_file)
     
-    if len(df) < 500: # Safety check (you might want to lower this for testing)
+    if len(df) < 500: 
         return {"status": "error", "message": f"Not enough data to train for {device_id}. Need at least 500 rows, found {len(df)}."}
 
     X_train = df[['mean', 'var']].values

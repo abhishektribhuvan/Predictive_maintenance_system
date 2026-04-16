@@ -43,6 +43,10 @@ def apply_theme():
             box-shadow: 0 4px 6px rgba(0,0,0,0.4);
             border: 1px solid #2A2D35;
             transition: transform 0.2s, box-shadow 0.2s;
+            min-height: 200px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
         }
         .machine-card:hover {
             transform: translateY(-5px);
@@ -66,6 +70,8 @@ def apply_theme():
         }
         .status-active { background-color: #00FF80; box-shadow: 0 0 8px #00FF80; align-items: center;}
         .status-inactive { background-color: #FF3333; box-shadow: 0 0 8px #FF3333; }
+        .health-normal { color: #00FF80; font-weight: bold; }
+        .health-anomaly { color: #FF3333; font-weight: bold; }
         </style>
         """
     else:
@@ -84,6 +90,10 @@ def apply_theme():
             box-shadow: 0 4px 6px rgba(0,0,0,0.05);
             border: 1px solid #E5E7EB;
             transition: transform 0.2s, box-shadow 0.2s;
+            min-height: 200px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
         }
         .machine-card:hover {
             transform: translateY(-5px);
@@ -106,6 +116,8 @@ def apply_theme():
         }
         .status-active { background-color: #10B981; }
         .status-inactive { background-color: #EF4444; }
+        .health-normal { color: #10B981; font-weight: bold; }
+        .health-anomaly { color: #EF4444; font-weight: bold; }
         </style>
         """
     st.markdown(css, unsafe_allow_html=True)
@@ -121,7 +133,23 @@ if st.session_state.selected_machine:
         st.session_state.selected_machine = None
         st.rerun()
 
-menu = ["Machine Status", "Add New Machine", "Settings"]
+# -------------------------------------------------------------
+# API REQUIREMENT: Prediction Data
+# Endpoint: GET /predict_latest/{device_id}
+# Returns the latest anomaly prediction from the trained model.
+# -------------------------------------------------------------
+def fetch_machine_data(device_id):
+    try:
+        # Assuming the backend is running locally for demonstration
+        response = requests.get(f"http://127.0.0.1:8000/predict_latest/{device_id}", timeout=2)
+        if response.status_code == 200:
+            return response.json()
+        else:
+            return None
+    except:
+        return None
+
+menu = ["Home", "Add New Machine", "Settings"]
 # Keep choice managed but if we are on selected_machine, we override the view
 choice = st.sidebar.radio("Navigation", menu)
 
@@ -145,22 +173,6 @@ if st.session_state.selected_machine:
     with res_col1:
         st.subheader("Current Metrics & Health")
         
-        # -------------------------------------------------------------
-        # API REQUIREMENT: Prediction Data
-        # Endpoint: GET /predict_latest/{device_id}
-        # Returns the latest anomaly prediction from the trained model.
-        # -------------------------------------------------------------
-        def fetch_machine_data(device_id):
-            try:
-                # Assuming the backend is running locally for demonstration
-                response = requests.get(f"http://127.0.0.1:8000/predict_latest/{device_id}", timeout=2)
-                if response.status_code == 200:
-                    return response.json()
-                else:
-                    return None
-            except:
-                return None
-
         if st.button("🔄 Refresh Data", key="refresh_detail"):
             st.rerun()
 
@@ -205,27 +217,68 @@ if st.session_state.selected_machine:
                 except Exception as e:
                     st.error(f"Backend unreachable: {e}")
 
-        if st.button("📈 View Historical Data", use_container_width=True):
-            st.info("Fetching old data...")
-            # -------------------------------------------------------------
-            # API REQUIREMENT: Historical Data Retrieval 
-            # Needs an endpoint like `GET /history/{mac_id}` returning a list of past metrics.
-            # -------------------------------------------------------------
-            try:
-                # We can manually read the CSV directly if on same machine for demonstration
-                csv_path = f"{mac_id}_training_data.csv"
-                df = pd.read_csv(csv_path)
-                st.dataframe(df.tail(10)) 
-            except FileNotFoundError:
-                st.error("No historical data file found for this device.")
+    st.markdown("---")
+    st.subheader("📈 Advanced Analytics & Graphs")
+    graph_opt = st.selectbox("Select Graph Type:", ["Time vs Mean", "Time vs Variance", "Anomaly-Aware Graph"])
+    
+    try:
+        csv_path = f"{mac_id}_training_data.csv"
+        df = pd.read_csv(csv_path)
+        
+        if graph_opt == "Time vs Mean":
+            st.line_chart(df[['mean']])
+        elif graph_opt == "Time vs Variance":
+            st.line_chart(df[['var']])
+        else:
+            # Anomaly-Aware Graph
+            st.info("Displaying Anomaly-Aware Graph (Trained baseline vs Live metrics indicator)")
+            st.line_chart(df[['mean', 'var']])
+            if data:
+                if data.get("status") != "Normal":
+                    st.error("Live Stream: **ANOMALY DETECTED** (Value deviates from trained threshold)")
+                else:
+                    st.success("Live Stream: **NORMAL** (Value matches trained profile)")
+            else:
+                st.warning("No live data available to overlay.")
+                
+    except FileNotFoundError:
+        st.warning("No historical data file found to render graphs.")
 
 
 # -------------------------------------------------------------------------
-# View 1: Machine Status Dashboard
+# View 1: Home Dashboard
 # -------------------------------------------------------------------------
-elif choice == "Machine Status":
+elif choice == "Home":
     st.title("🌐 Multi-Machine Status Dashboard")
     st.markdown("Monitor all distributed systems in one centralized view.")
+    
+    # Pre-calculate statuses for top-level metrics
+    active_count = 0
+    anomaly_devices = []
+    
+    for mac, info in st.session_state.machines.items():
+        if 'is_active' not in info:
+            info['is_active'] = random.choice([True, False])
+        if info['is_active']:
+            active_count += 1
+            
+        data = fetch_machine_data(mac)
+        info['last_data'] = data
+        if data and data.get("status") != "Normal":
+            anomaly_devices.append(info['name'])
+
+    st.markdown("---")
+    
+    # Top Level Metrics
+    m1, m2, m3 = st.columns(3)
+    m1.metric("Total Machines", len(st.session_state.machines))
+    m2.metric("Active Devices", active_count)
+    if anomaly_devices:
+        m3.metric("🚨 Anomalies Detected", len(anomaly_devices))
+        st.error(f"**Devices with Anomalies:** {', '.join(anomaly_devices)}")
+    else:
+        m3.metric("🚨 Anomalies Detected", 0)
+        st.success("All systems operating normally.")
     
     # Grid Layout with Search
     col_search, col_space = st.columns([2, 2])
@@ -252,25 +305,36 @@ elif choice == "Machine Status":
                 col = cols[index % 3]
                 
                 with col:
-                    # -------------------------------------------------------------
-                    # API REQUIREMENT: Live Connection/Active Status
-                    # We need an endpoint (e.g., `GET /device_status/{mac_id}`) or a WebSocket connection
-                    # to indicate if the ESP32 is actively sending data.
-                    # For now, this is randomized as requested.
-                    # -------------------------------------------------------------
-                    is_active = random.choice([True, False])
-                    
+                    # Use pre-calculated status
+                    is_active = machine_info.get('is_active', False)
                     status_class = "status-active" if is_active else "status-inactive"
                     status_text = "Receiving Data" if is_active else "Inactive"
+                    
+                    data = machine_info.get('last_data')
+                    health_status = "Unknown"
+                    health_class = ""
+                    if data:
+                        if data.get("status") == "Normal":
+                            health_status = "Normal"
+                            health_class = "health-normal"
+                        else:
+                            health_status = "Anomaly"
+                            health_class = "health-anomaly"
                     
                     # Custom Card HTML/CSS implementation snippet wrapped in markdown
                     st.markdown(f"""
                     <div class="machine-card">
-                        <h4 style="margin-top:0;">{machine_info['name']}</h4>
-                        <p style="color: gray; font-size: 0.9em; margin-bottom: 10px;">ID: {mac_id}</p>
                         <div>
-                            <span class="status-indicator {status_class}"></span>
-                            <span style="font-size: 0.85em; font-weight: bold;">{status_text}</span>
+                            <h4 style="margin-top:0;">{machine_info['name']}</h4>
+                            <p style="color: gray; font-size: 0.9em; margin-bottom: 10px;">ID: {mac_id}</p>
+                            <div style="margin-bottom: 5px;">
+                                <span class="status-indicator {status_class}"></span>
+                                <span style="font-size: 0.85em; font-weight: bold;">{status_text}</span>
+                            </div>
+                            <div>
+                                <span style="font-size: 0.85em;">Health: </span>
+                                <span class="{health_class}" style="font-size: 0.85em;">{health_status}</span>
+                            </div>
                         </div>
                     </div>
                     """, unsafe_allow_html=True)
