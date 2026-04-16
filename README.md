@@ -1,6 +1,3 @@
-<p align="center">
-  <img src="assets/banner.png" alt="Anomaly Detection System Banner" width="100%"/>
-</p>
 
 <h1 align="center">⚙️ IoT Anomaly Detection System</h1>
 
@@ -234,6 +231,10 @@ curl -X POST http://localhost:8000/send_from_esp32 \
 ---
 
 ## 📸 Dashboard Screenshots
+<img width="1919" height="1079" alt="image" src="https://github.com/user-attachments/assets/00801a72-c45d-4779-911f-e4b3b7c499b1" />
+<img width="1918" height="942" alt="image" src="https://github.com/user-attachments/assets/fd125ae0-7952-489a-8958-8e33ac44b75c" />
+
+
 
 The Streamlit dashboard provides:
 
